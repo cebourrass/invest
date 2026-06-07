@@ -473,6 +473,9 @@ function renderHoldingsTable() {
             deleteHolding(hId);
         });
     });
+
+    // Re-initialize Lucide icons for the newly rendered rows
+    lucide.createIcons();
 }
 
 function getAccountName(id) {
