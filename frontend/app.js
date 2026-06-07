@@ -179,6 +179,57 @@ function renderDashboard() {
     }
 
     document.getElementById("kpi-accounts-count").textContent = accounts.length;
+
+    // Render Accounts Performance Table
+    const dbAccountsBody = document.getElementById("dashboard-accounts-body");
+    if (dbAccountsBody) {
+        dbAccountsBody.innerHTML = "";
+        
+        if (accounts.length === 0) {
+            dbAccountsBody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                        Aucun compte support configuré.
+                    </td>
+                </tr>
+            `;
+        } else {
+            // Sort by current value descending
+            const sortedAccounts = [...accounts].map(acc => {
+                const accHoldings = holdings.filter(h => h.account_id === acc.id);
+                const cost = accHoldings.reduce((sum, h) => sum + h.total_cost, 0);
+                const val = accHoldings.reduce((sum, h) => sum + h.total_value, 0);
+                const gain = val - cost;
+                const gainPct = cost > 0 ? (gain / cost * 100) : 0.0;
+                return { ...acc, cost, val, gain, gainPct };
+            }).sort((a, b) => b.val - a.val);
+
+            sortedAccounts.forEach(acc => {
+                const tr = document.createElement("tr");
+                const gainClass = acc.gain >= 0 ? "positive" : "negative";
+                
+                tr.innerHTML = `
+                    <td>
+                        <span class="badge ${getAccountBadgeClass(acc.type)}">${acc.name}</span>
+                    </td>
+                    <td><code>${acc.type}</code></td>
+                    <td>${formatCurrency(acc.cost)}</td>
+                    <td><strong>${formatCurrency(acc.val)}</strong></td>
+                    <td>
+                        <span class="gain-status ${gainClass}">
+                            ${formatCurrency(acc.gain)}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="gain-status ${gainClass}">
+                            ${formatPercent(acc.gainPct)}
+                        </span>
+                    </td>
+                `;
+                dbAccountsBody.appendChild(tr);
+            });
+        }
+    }
     
     // Draw Charts
     updateCharts();
