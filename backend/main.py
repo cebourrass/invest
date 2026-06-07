@@ -50,9 +50,15 @@ app.add_middleware(
 class AccountBase(BaseModel):
     name: str = Field(..., example="PEA EasyBourse")
     type: str = Field(..., example="PEA") # PEA, PER, Assurance Vie, Compte-Titres, Autre
+    creation_date: Optional[str] = Field(None, example="2020-01-01")
 
 class AccountCreate(AccountBase):
     pass
+
+class AccountUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    creation_date: Optional[str] = None
 
 class AccountSchema(AccountBase):
     id: int
@@ -122,8 +128,22 @@ def get_accounts(db: Session = Depends(get_db)):
 
 @app.post("/api/accounts", response_model=AccountSchema, status_code=status.HTTP_201_CREATED)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    db_account = Account(name=account.name, type=account.type)
+    db_account = Account(name=account.name, type=account.type, creation_date=account.creation_date)
     db.add(db_account)
+    db.commit()
+    db.refresh(db_account)
+    return db_account
+
+@app.put("/api/accounts/{account_id}", response_model=AccountSchema)
+def update_account(account_id: int, account_update: AccountUpdate, db: Session = Depends(get_db)):
+    db_account = db.query(Account).filter(Account.id == account_id).first()
+    if not db_account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    update_data = account_update.dict(exclude_unset=True)
+    for key, val in update_data.items():
+        setattr(db_account, key, val)
+        
     db.commit()
     db.refresh(db_account)
     return db_account

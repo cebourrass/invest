@@ -391,10 +391,17 @@ h1, h2, h3, h4, h5, h6, .logo-area h2 {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
-/* Charts Grid */
-.charts-grid {
+/* Dashboard Layout Structure */
+.dashboard-top-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.dashboard-bottom-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 24px;
 }
 
@@ -421,10 +428,6 @@ h1, h2, h3, h4, h5, h6, .logo-area h2 {
     display: flex;
     justify-content: center;
     align-items: center;
-}
-
-.span-two {
-    grid-column: span 2;
 }
 
 /* ==========================================================================

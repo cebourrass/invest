@@ -17,6 +17,7 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)  # PEA, PER, Assurance Vie, Compte-Titres, Autre
+    creation_date = Column(String, nullable=True)  # Format: YYYY-MM-DD
 
     holdings = relationship("Holding", back_populates="account", cascade="all, delete-orphan")
 
@@ -51,6 +52,16 @@ class SystemSetting(Base):
     value = Column(String, nullable=False)
 
 def init_db():
+    # Run manual migration first to ensure new column exists in SQLite
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    if inspector.has_table("accounts"):
+        columns = [c['name'] for c in inspector.get_columns('accounts')]
+        if 'creation_date' not in columns:
+            with engine.begin() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN creation_date VARCHAR"))
+
     Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()
@@ -67,7 +78,7 @@ def init_db():
         # Let's seed with some sample accounts if none exist, so the user has an immediate starting point
         if db.query(Account).count() == 0:
             pea = Account(name="PEA EasyBourse", type="PEA")
-            av = Account(name="Assurance Vie Linxea", type="Assurance Vie")
+            av = Account(name="Assurance Vie Linxea", type="Assurance Vie", creation_date="2020-01-01")
             per = Account(name="PER Suravenir", type="PER")
             
             db.add_all([pea, av, per])

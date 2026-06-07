@@ -32,6 +32,32 @@ function formatPercent(val) {
     return `${sign}${val.toFixed(2)}%`;
 }
 
+function calculateAnnualizedReturn(gainPct, creationDateStr) {
+    if (!creationDateStr) return null;
+    const creationDate = new Date(creationDateStr);
+    const today = new Date();
+    // Normalize to dates only to ignore hours/minutes/seconds
+    creationDate.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
+    
+    const diffTime = today - creationDate;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Ignore if creation date is in the future
+    if (diffDays <= 0) return null;
+    
+    // Annualized return (CAGR) formula:
+    // CAGR = (1 + R)^(365 / diffDays) - 1
+    // If diffDays < 30, display "-" to avoid astronomical percentages for new accounts
+    if (diffDays < 30) return null;
+    
+    const R = gainPct / 100;
+    if (R <= -1) return -100;
+    
+    const annualizedR = Math.pow(1 + R, 365 / diffDays) - 1;
+    return annualizedR * 100;
+}
+
 function getAccountBadgeClass(type) {
     switch (type.toLowerCase()) {
         case 'pea': return 'pea';
@@ -209,6 +235,10 @@ function renderDashboard() {
                 const tr = document.createElement("tr");
                 const gainClass = acc.gain >= 0 ? "positive" : "negative";
                 
+                const annReturn = calculateAnnualizedReturn(acc.gainPct, acc.creation_date);
+                const annReturnStr = annReturn !== null ? formatPercent(annReturn) : "-";
+                const annReturnClass = annReturn !== null ? (annReturn >= 0 ? "positive" : "negative") : "";
+
                 tr.innerHTML = `
                     <td>
                         <span class="badge ${getAccountBadgeClass(acc.type)}">${acc.name}</span>
@@ -224,6 +254,11 @@ function renderDashboard() {
                     <td>
                         <span class="gain-status ${gainClass}">
                             ${formatPercent(acc.gainPct)}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="gain-status ${annReturnClass}">
+                            ${annReturnStr}
                         </span>
                     </td>
                 `;
@@ -497,6 +532,17 @@ function renderAccountsList() {
         const gainPct = cost > 0 ? (gain / cost * 100) : 0.0;
         const gainClass = gain >= 0 ? "positive" : "negative";
 
+        const annReturn = calculateAnnualizedReturn(gainPct, acc.creation_date);
+        const annReturnStr = annReturn !== null ? formatPercent(annReturn) : "-";
+        const annReturnClass = annReturn !== null ? (annReturn >= 0 ? "positive" : "negative") : "";
+
+        // Format creation date nicely
+        let creationDateFormatted = "Non renseignée";
+        if (acc.creation_date) {
+            const dateObj = new Date(acc.creation_date);
+            creationDateFormatted = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
         const card = document.createElement("div");
         card.className = `account-card glass ${getAccountBadgeClass(acc.type)}`;
         
@@ -506,11 +552,20 @@ function renderAccountsList() {
                     <span class="badge ${getAccountBadgeClass(acc.type)}" style="margin-bottom: 8px;">${acc.type}</span>
                     <h3>${acc.name}</h3>
                 </div>
-                <button class="table-action-btn delete delete-account-btn" data-id="${acc.id}" title="Supprimer ce compte support">
-                    <i data-lucide="trash-2"></i>
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="table-action-btn edit edit-account-btn" data-id="${acc.id}" title="Modifier ce compte support">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                    <button class="table-action-btn delete delete-account-btn" data-id="${acc.id}" title="Supprimer ce compte support">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
             </div>
             <div class="account-card-body">
+                <div class="account-value-row">
+                    <span class="label">Date de création</span>
+                    <span class="val">${creationDateFormatted}</span>
+                </div>
                 <div class="account-value-row">
                     <span class="label">Coût d'achat</span>
                     <span class="val">${formatCurrency(cost)}</span>
@@ -518,6 +573,10 @@ function renderAccountsList() {
                 <div class="account-value-row">
                     <span class="label">Gain / Perte</span>
                     <span class="val gain-status ${gainClass}">${formatCurrency(gain)} (${formatPercent(gainPct)})</span>
+                </div>
+                <div class="account-value-row">
+                    <span class="label">Rentabilité p.a.</span>
+                    <span class="val gain-status ${annReturnClass}">${annReturnStr}</span>
                 </div>
                 <div class="account-value-row grand-total">
                     <span class="label">Valeur actuelle</span>
@@ -534,6 +593,14 @@ function renderAccountsList() {
         btn.addEventListener("click", () => {
             const accId = parseInt(btn.getAttribute("data-id"));
             deleteAccount(accId);
+        });
+    });
+
+    // Add click listeners to account edit buttons
+    document.querySelectorAll(".edit-account-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const accId = parseInt(btn.getAttribute("data-id"));
+            openAccountEditModal(accId);
         });
     });
 }
@@ -589,8 +656,7 @@ function setupModals() {
     });
     
     document.getElementById("open-account-modal").addEventListener("click", () => {
-        document.getElementById("account-form").reset();
-        accountModal.classList.add("active");
+        openAccountAddModal();
     });
 
     // Close buttons holding
@@ -738,30 +804,70 @@ async function handleHoldingFormSubmit(e) {
     }
 }
 
+function openAccountAddModal() {
+    const modal = document.getElementById("account-modal");
+    document.getElementById("account-modal-title").textContent = "Ajouter un Compte Support";
+    document.getElementById("account-form").reset();
+    document.getElementById("account-id").value = "";
+    document.getElementById("account-submit-btn").textContent = "Créer";
+    modal.classList.add("active");
+}
+
+function openAccountEditModal(id) {
+    const acc = accounts.find(item => item.id === id);
+    if (!acc) return;
+    
+    const modal = document.getElementById("account-modal");
+    document.getElementById("account-modal-title").textContent = "Modifier le Compte Support";
+    
+    document.getElementById("account-id").value = acc.id;
+    document.getElementById("account-name").value = acc.name;
+    document.getElementById("account-type").value = acc.type;
+    document.getElementById("account-creation-date").value = acc.creation_date || "";
+    document.getElementById("account-submit-btn").textContent = "Sauvegarder";
+    
+    modal.classList.add("active");
+}
+
 async function handleAccountFormSubmit(e) {
     e.preventDefault();
+    const id = document.getElementById("account-id").value;
+    const creationDateValue = document.getElementById("account-creation-date").value;
+    
     const payload = {
         name: document.getElementById("account-name").value,
-        type: document.getElementById("account-type").value
+        type: document.getElementById("account-type").value,
+        creation_date: creationDateValue ? creationDateValue : null
     };
 
     try {
-        const response = await fetch(`${API_URL}/api/accounts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        let response;
+        if (id) {
+            // Edit PUT
+            response = await fetch(`${API_URL}/api/accounts/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            // Create POST
+            response = await fetch(`${API_URL}/api/accounts`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
 
         if (response.ok) {
             document.getElementById("account-modal").classList.remove("active");
             await fetchAllData();
         } else {
             const err = await response.json();
-            alert(`Erreur: ${err.detail}`);
+            alert(`Erreur: ${err.detail || "Erreur de validation"}`);
         }
     } catch (error) {
         console.error(error);
-        alert("Une erreur s'est produite lors de la création du compte.");
+        alert("Une erreur s'est produite lors de l'enregistrement du compte.");
     }
 }
 

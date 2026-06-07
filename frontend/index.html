@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- CSS stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.1">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js -->
@@ -99,16 +99,42 @@
                     </div>
                 </div>
 
-                <!-- Charts Section -->
-                <div class="charts-grid">
+                <!-- Top Section: Line Chart & Accounts Performance -->
+                <div class="dashboard-top-section">
                     <!-- History Chart -->
-                    <div class="chart-card glass span-two">
+                    <div class="chart-card glass">
                         <h3>Évolution Historique</h3>
                         <div class="chart-container">
                             <canvas id="history-chart"></canvas>
                         </div>
                     </div>
 
+                    <!-- Accounts Performance Details -->
+                    <div class="dashboard-accounts-section glass" style="padding: 24px;">
+                        <h3 style="font-size: 16px; margin-bottom: 20px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Performance par Compte</h3>
+                        <div class="table-container" style="border: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;">
+                            <table class="data-table" id="dashboard-accounts-table">
+                                <thead>
+                                    <tr>
+                                        <th>Compte Support</th>
+                                        <th>Type</th>
+                                        <th>Coût d'Acquisition</th>
+                                        <th>Valeur Actuelle</th>
+                                        <th>Plus-value / Moins-value</th>
+                                        <th>Profitabilité</th>
+                                        <th>Rentabilité / an</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-accounts-body">
+                                    <!-- Injected dynamically by app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Section: Allocation Donut Charts -->
+                <div class="dashboard-bottom-grid" style="margin-top: 24px;">
                     <!-- Allocation by Account -->
                     <div class="chart-card glass">
                         <h3>Allocation par Compte</h3>
@@ -123,28 +149,6 @@
                         <div class="chart-container donut">
                             <canvas id="category-allocation-chart"></canvas>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Accounts Performance Details -->
-                <div class="dashboard-accounts-section glass" style="margin-top: 24px; padding: 24px;">
-                    <h3 style="font-size: 16px; margin-bottom: 20px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Performance par Compte</h3>
-                    <div class="table-container" style="border: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;">
-                        <table class="data-table" id="dashboard-accounts-table">
-                            <thead>
-                                <tr>
-                                    <th>Compte Support</th>
-                                    <th>Type</th>
-                                    <th>Coût d'Acquisition</th>
-                                    <th>Valeur Actuelle</th>
-                                    <th>Plus-value / Moins-value</th>
-                                    <th>Profitabilité</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dashboard-accounts-body">
-                                <!-- Injected dynamically by app.js -->
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </section>
@@ -330,10 +334,12 @@
     <div id="account-modal" class="modal-overlay">
         <div class="modal-card glass">
             <div class="modal-header">
-                <h3>Ajouter un Compte Support</h3>
+                <h3 id="account-modal-title">Ajouter un Compte Support</h3>
                 <button class="close-modal-btn" id="close-account-modal"><i data-lucide="x"></i></button>
             </div>
             <form id="account-form" class="modal-form">
+                <input type="hidden" id="account-id">
+                
                 <div class="form-group">
                     <label for="account-name">Nom du Compte</label>
                     <input type="text" id="account-name" placeholder="ex: PEA EasyBourse, AV Linxea" required>
@@ -351,9 +357,14 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label for="account-creation-date">Date de Création</label>
+                    <input type="date" id="account-creation-date">
+                </div>
+
                 <div class="form-actions">
                     <button type="button" class="cancel-btn" id="cancel-account-form">Annuler</button>
-                    <button type="submit" class="submit-btn">Créer</button>
+                    <button type="submit" class="submit-btn" id="account-submit-btn">Créer</button>
                 </div>
             </form>
         </div>
