@@ -11,6 +11,7 @@ let portfolioHistory = [];
 let historyChart = null;
 let accountAllocationChart = null;
 let categoryAllocationChart = null;
+let confirmAction = null;
 
 // DOM Elements
 const panes = document.querySelectorAll(".tab-pane");
@@ -447,31 +448,16 @@ function renderHoldingsTable() {
                 </span>
             </td>
             <td class="actions-cell">
-                <button class="table-action-btn edit" data-id="${h.id}" title="Modifier">
+                <button class="table-action-btn edit" onclick="openHoldingEditModal(${h.id})" title="Modifier">
                     <i data-lucide="edit-3"></i>
                 </button>
-                <button class="table-action-btn delete" data-id="${h.id}" title="Supprimer">
+                <button class="table-action-btn delete" onclick="deleteHolding(${h.id})" title="Supprimer">
                     <i data-lucide="trash-2"></i>
                 </button>
             </td>
         `;
 
         tbody.appendChild(tr);
-    });
-
-    // Attach Event Listeners on newly rendered actions buttons
-    document.querySelectorAll(".table-action-btn.edit").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const hId = parseInt(btn.getAttribute("data-id"));
-            openHoldingEditModal(hId);
-        });
-    });
-
-    document.querySelectorAll(".table-action-btn.delete").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const hId = parseInt(btn.getAttribute("data-id"));
-            deleteHolding(hId);
-        });
     });
 
     // Re-initialize Lucide icons for the newly rendered rows
@@ -635,6 +621,20 @@ function setupModals() {
     // Forms Submissions
     document.getElementById("holding-form").addEventListener("submit", handleHoldingFormSubmit);
     document.getElementById("account-form").addEventListener("submit", handleAccountFormSubmit);
+
+    // Close confirm modal
+    document.getElementById("confirm-cancel-btn").addEventListener("click", () => {
+        document.getElementById("confirm-modal").classList.remove("active");
+    });
+    
+    // Execute confirm action
+    document.getElementById("confirm-delete-btn").addEventListener("click", async () => {
+        if (confirmAction) {
+            await confirmAction();
+        }
+        document.getElementById("confirm-modal").classList.remove("active");
+        confirmAction = null;
+    });
 }
 
 function openHoldingAddModal() {
@@ -765,40 +765,58 @@ async function handleAccountFormSubmit(e) {
     }
 }
 
-async function deleteHolding(id) {
-    if (!confirm("Voulez-vous vraiment supprimer ce placement ?")) return;
-    
-    try {
-        const response = await fetch(`${API_URL}/api/holdings/${id}`, { method: "DELETE" });
-        if (response.ok) {
-            await fetchAllData();
-        } else {
-            alert("Impossible de supprimer le placement.");
-        }
-    } catch (err) {
-        console.error(err);
-    }
+function showConfirmModal(title, text, action) {
+    document.getElementById("confirm-modal-title").textContent = title;
+    document.getElementById("confirm-modal-text").textContent = text;
+    confirmAction = action;
+    document.getElementById("confirm-modal").classList.add("active");
+    lucide.createIcons();
 }
 
-async function deleteAccount(id) {
+function deleteHolding(id) {
+    showConfirmModal(
+        "Supprimer le placement ?",
+        "Voulez-vous vraiment supprimer ce placement ? Cette action est irréversible.",
+        async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/holdings/${id}`, { method: "DELETE" });
+                if (response.ok) {
+                    await fetchAllData();
+                } else {
+                    alert("Impossible de supprimer le placement.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    );
+}
+
+function deleteAccount(id) {
+    const acc = accounts.find(a => a.id === id);
+    const accName = acc ? acc.name : "ce compte";
     const accountHoldings = holdings.filter(h => h.account_id === id);
-    let msg = "Voulez-vous vraiment supprimer ce compte support ?";
+    let msg = `Voulez-vous vraiment supprimer le compte "${accName}" ?`;
     if (accountHoldings.length > 0) {
-        msg = `ATTENTION: Ce compte contient ${accountHoldings.length} placement(s). Supprimer ce compte supprimera également tous les placements associés. Continuer ?`;
+        msg = `ATTENTION : Le compte "${accName}" contient ${accountHoldings.length} placement(s). Supprimer ce compte supprimera également tous les placements associés de manière définitive.`;
     }
     
-    if (!confirm(msg)) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/accounts/${id}`, { method: "DELETE" });
-        if (response.ok) {
-            await fetchAllData();
-        } else {
-            alert("Impossible de supprimer le compte support.");
+    showConfirmModal(
+        "Supprimer le compte support ?",
+        msg,
+        async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/accounts/${id}`, { method: "DELETE" });
+                if (response.ok) {
+                    await fetchAllData();
+                } else {
+                    alert("Impossible de supprimer le compte support.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
         }
-    } catch (err) {
-        console.error(err);
-    }
+    );
 }
 
 // --- SETTINGS VIEW ACTIONS ---

@@ -359,6 +359,23 @@
         </div>
     </div>
 
+    <!-- MODAL 3: CONFIRM DELETE -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-card glass" style="max-width: 420px; text-align: center;">
+            <div style="font-size: 48px; color: var(--color-danger); margin-bottom: 16px; display: flex; justify-content: center;">
+                <i data-lucide="alert-triangle" style="width: 48px; height: 48px;"></i>
+            </div>
+            <h3 id="confirm-modal-title" style="margin-bottom: 12px; font-family: 'Outfit', sans-serif;">Supprimer ?</h3>
+            <p id="confirm-modal-text" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+                Voulez-vous vraiment effectuer cette suppression ?
+            </p>
+            <div class="form-actions" style="justify-content: center; gap: 16px;">
+                <button type="button" class="cancel-btn" id="confirm-cancel-btn" style="width: 120px;">Annuler</button>
+                <button type="button" class="submit-btn" id="confirm-delete-btn" style="background-color: var(--color-danger); width: 120px;">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Javascript Entry point -->
     <script src="app.js"></script>
 </body>
