@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio - Suivi d'Investissements</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- CSS stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <h2>AuraVest</h2>
+            </div>
+            
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="dashboard" id="tab-dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Vue d'ensemble</span>
+                </button>
+                <button class="nav-btn" data-tab="holdings" id="tab-holdings">
+                    <i data-lucide="briefcase"></i>
+                    <span>Mes Placements</span>
+                </button>
+                <button class="nav-btn" data-tab="accounts" id="tab-accounts">
+                    <i data-lucide="wallet"></i>
+                    <span>Comptes Supports</span>
+                </button>
+                <button class="nav-btn" data-tab="settings" id="tab-settings">
+                    <i data-lucide="settings"></i>
+                    <span>Réglages</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="refresh-btn" class="action-btn refresh-btn-glow">
+                    <i data-lucide="refresh-cw" id="refresh-icon"></i>
+                    <span>Actualiser les cours</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-info">
+                    <h1>Tableau de bord</h1>
+                    <p class="subtitle">Suivi automatique de vos actifs financiers</p>
+                </div>
+                <div class="date-badge">
+                    <i data-lucide="calendar"></i>
+                    <span id="current-date">--/--/----</span>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="pane-dashboard" class="tab-pane active">
+                <!-- KPI Metrics Grid -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Valeur Totale</span>
+                            <div class="kpi-icon total"><i data-lucide="banknote"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-total-val">0,00 €</div>
+                        <div class="kpi-subtext" id="kpi-total-cost">Coût d'achat: 0,00 €</div>
+                    </div>
+
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Plus-value Latente</span>
+                            <div class="kpi-icon gain"><i data-lucide="percent"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-total-gain">0,00 €</div>
+                        <div class="kpi-subtext" id="kpi-total-gain-pct">--% de performance globale</div>
+                    </div>
+
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Répartition Comptes</span>
+                            <div class="kpi-icon accounts"><i data-lucide="wallet"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-accounts-count">0</div>
+                        <div class="kpi-subtext" id="kpi-accounts-type">PEA, PER, Assurance Vie</div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <!-- History Chart -->
+                    <div class="chart-card glass span-two">
+                        <h3>Évolution Historique</h3>
+                        <div class="chart-container">
+                            <canvas id="history-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Allocation by Account -->
+                    <div class="chart-card glass">
+                        <h3>Allocation par Compte</h3>
+                        <div class="chart-container donut">
+                            <canvas id="account-allocation-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Allocation by Category -->
+                    <div class="chart-card glass">
+                        <h3>Allocation par Actif</h3>
+                        <div class="chart-container donut">
+                            <canvas id="category-allocation-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: HOLDINGS -->
+            <section id="pane-holdings" class="tab-pane">
+                <div class="action-bar">
+                    <h2>Mes Placements</h2>
+                    <div class="action-bar-controls" style="display: flex; gap: 16px; align-items: center;">
+                        <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+                            <label for="filter-holding-account" style="white-space: nowrap; margin-bottom: 0; font-size: 13px; color: var(--text-secondary);">Filtrer par compte :</label>
+                            <select id="filter-holding-account" style="padding: 8px 12px; font-size: 13px; min-width: 180px; height: 38px;">
+                                <option value="all">Tous les comptes</option>
+                            </select>
+                        </div>
+                        <button class="add-btn" id="open-holding-modal" style="height: 38px; padding: 0 16px;">
+                            <i data-lucide="plus"></i>
+                            <span>Nouveau Placement</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container glass">
+                    <table class="data-table" id="holdings-table">
+                        <thead>
+                            <tr>
+                                <th>Support / Compte</th>
+                                <th>Placement</th>
+                                <th>Code ISIN / Ticker</th>
+                                <th>Catégorie</th>
+                                <th>Quantité</th>
+                                <th>Prix Moyen d'Achat</th>
+                                <th>Cours Actuel</th>
+                                <th>Valeur Actuelle</th>
+                                <th>Gain / Perte</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdings-table-body">
+                            <!-- Injected by app.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 3: ACCOUNTS -->
+            <section id="pane-accounts" class="tab-pane">
+                <div class="action-bar">
+                    <h2>Comptes Supports</h2>
+                    <button class="add-btn" id="open-account-modal">
+                        <i data-lucide="plus"></i>
+                        <span>Ajouter un compte</span>
+                    </button>
+                </div>
+
+                <div class="accounts-grid" id="accounts-list-container">
+                    <!-- Injected by app.js -->
+                </div>
+            </section>
+
+            <!-- TAB 4: SETTINGS -->
+            <section id="pane-settings" class="tab-pane">
+                <div class="action-bar">
+                    <h2>Réglages de Planification</h2>
+                </div>
+
+                <div class="settings-card glass">
+                    <form id="settings-form" class="settings-form">
+                        <p class="settings-intro">Configurez la récurrence et l'heure précise des actualisations automatiques des cours et des prises de clichés historiques de votre portefeuille.</p>
+                        
+                        <div class="form-group">
+                            <label for="settings-interval">Fréquence de mise à jour</label>
+                            <select id="settings-interval" required>
+                                <option value="daily">Quotidienne (Tous les jours)</option>
+                                <option value="weekly">Hebdomadaire (Tous les lundis)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="settings-hour">Heure (0 - 23)</label>
+                                <input type="number" id="settings-hour" min="0" max="23" placeholder="20" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="settings-minute">Minute (0 - 59)</label>
+                                <input type="number" id="settings-minute" min="0" max="59" placeholder="00" required>
+                            </div>
+                        </div>
+
+                        <div class="settings-status">
+                            <i data-lucide="info"></i>
+                            <span id="settings-status-text">Chargement de la planification...</span>
+                        </div>
+
+                        <div class="form-actions" style="justify-content: flex-start; margin-top: 10px;">
+                            <button type="submit" class="submit-btn" style="width: auto;">Enregistrer les réglages</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD HOLDING -->
+    <div id="holding-modal" class="modal-overlay">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h3 id="holding-modal-title">Nouveau Placement</h3>
+                <button class="close-modal-btn" id="close-holding-modal"><i data-lucide="x"></i></button>
+            </div>
+            <form id="holding-form" class="modal-form">
+                <input type="hidden" id="holding-id">
+                
+                <div class="form-group">
+                    <label for="holding-account">Compte Support</label>
+                    <select id="holding-account" required>
+                        <!-- Injected dynamically -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="holding-name">Nom du Placement</label>
+                    <input type="text" id="holding-name" placeholder="ex: Amundi MSCI World" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="holding-category">Catégorie</label>
+                        <select id="holding-category" required>
+                            <option value="ETF">ETF</option>
+                            <option value="OPCVM">OPCVM / Fonds Commun</option>
+                            <option value="Actions">Actions</option>
+                            <option value="Immobilier">Immobilier (SCPI/OPCI)</option>
+                            <option value="Fonds Euros">Fonds Euros</option>
+                            <option value="Crypto">Cryptomonnaie</option>
+                            <option value="Cash">Cash / Liquidités</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="holding-pricing-mode">Mode de Prix</label>
+                        <select id="holding-pricing-mode">
+                            <option value="auto">Mise à jour automatique (ISIN)</option>
+                            <option value="manual">Saisie manuelle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="isin-field-container">
+                    <label for="holding-isin">Code ISIN ou Ticker Yahoo</label>
+                    <input type="text" id="holding-isin" placeholder="ex: LU1681043599 ou CW8.PA">
+                    <span class="input-help">Sera utilisé pour récupérer automatiquement le cours de bourse.</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="holding-qty">Quantité de Parts</label>
+                        <input type="number" id="holding-qty" step="any" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="holding-buy-price">Prix d'Achat Moyen (€)</label>
+                        <input type="number" id="holding-buy-price" step="any" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <div class="form-group" id="manual-price-field-container" style="display: none;">
+                    <label for="holding-manual-price">Cours actuel (€)</label>
+                    <input type="number" id="holding-manual-price" step="any" placeholder="0.00">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancel-holding-form">Annuler</button>
+                    <button type="submit" class="submit-btn">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADD ACCOUNT -->
+    <div id="account-modal" class="modal-overlay">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h3>Ajouter un Compte Support</h3>
+                <button class="close-modal-btn" id="close-account-modal"><i data-lucide="x"></i></button>
+            </div>
+            <form id="account-form" class="modal-form">
+                <div class="form-group">
+                    <label for="account-name">Nom du Compte</label>
+                    <input type="text" id="account-name" placeholder="ex: PEA EasyBourse, AV Linxea" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="account-type">Type de Support</label>
+                    <select id="account-type" required>
+                        <option value="PEA">PEA</option>
+                        <option value="PER">PER</option>
+                        <option value="Assurance Vie">Assurance Vie</option>
+                        <option value="Compte-Titres">Compte-Titres</option>
+                        <option value="Crypto Wallet">Crypto Wallet</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancel-account-form">Annuler</button>
+                    <button type="submit" class="submit-btn">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Javascript Entry point -->
+    <script src="app.js"></script>
+</body>
+</html>
