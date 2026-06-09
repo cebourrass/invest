@@ -6,6 +6,7 @@ let accounts = [];
 let holdings = [];
 let portfolioSummary = null;
 let portfolioHistory = [];
+let currentPeriod = "1m";
 
 // Chart instances
 let historyChart = null;
@@ -114,6 +115,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Refresh Price Button
     refreshBtn.addEventListener("click", handleRefreshPrices);
 
+    // Period Selectors for History Chart
+    const periodBtns = document.querySelectorAll(".period-btn");
+    periodBtns.forEach(btn => {
+        btn.addEventListener("click", async () => {
+            periodBtns.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            const period = btn.getAttribute("data-period");
+            await fetchHistory(period);
+        });
+    });
+
     // Filter holdings by account
     const filterSelect = document.getElementById("filter-holding-account");
     if (filterSelect) {
@@ -133,13 +145,26 @@ async function initApp() {
     setupSettingsForm();
 }
 
+async function fetchHistory(period) {
+    currentPeriod = period;
+    try {
+        const response = await fetch(`${API_URL}/api/portfolio/history?period=${period}`);
+        if (response.ok) {
+            portfolioHistory = await response.json();
+            updateCharts();
+        }
+    } catch (err) {
+        console.error("Erreur lors de la récupération de l'historique:", err);
+    }
+}
+
 async function fetchAllData() {
     try {
         const [accountsRes, holdingsRes, summaryRes, historyRes] = await Promise.all([
             fetch(`${API_URL}/api/accounts`),
             fetch(`${API_URL}/api/holdings`),
             fetch(`${API_URL}/api/portfolio/summary`),
-            fetch(`${API_URL}/api/portfolio/history`)
+            fetch(`${API_URL}/api/portfolio/history?period=${currentPeriod}`)
         ]);
 
         accounts = await accountsRes.json();
@@ -362,6 +387,9 @@ function updateCharts() {
         
         const labels = sortedHistory.map(h => {
             const d = new Date(h.timestamp);
+            if (currentPeriod === "1d") {
+                return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            }
             return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
         });
         const values = sortedHistory.map(h => h.total_value);

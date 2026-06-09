@@ -2,7 +2,7 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
@@ -361,9 +361,96 @@ def force_refresh_portfolio(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
 
+def aggregate_history(records: List[PortfolioHistory], period: str) -> List[PortfolioHistory]:
+    if not records:
+        return []
+    
+    # Sort records chronologically
+    records = sorted(records, key=lambda r: r.timestamp)
+    
+    # Filter by period threshold
+    now = datetime.utcnow()
+    if period == "1d":
+        threshold = now - timedelta(hours=24)
+        records = [r for r in records if r.timestamp >= threshold]
+    elif period == "10d":
+        threshold = now - timedelta(days=10)
+        records = [r for r in records if r.timestamp >= threshold]
+    elif period == "1m":
+        threshold = now - timedelta(days=30)
+        records = [r for r in records if r.timestamp >= threshold]
+    elif period == "3m":
+        threshold = now - timedelta(days=90)
+        records = [r for r in records if r.timestamp >= threshold]
+    elif period == "1y":
+        threshold = now - timedelta(days=365)
+        records = [r for r in records if r.timestamp >= threshold]
+    elif period == "5y":
+        threshold = now - timedelta(days=5 * 365)
+        records = [r for r in records if r.timestamp >= threshold]
+    
+    if not records:
+        return []
+
+    # Aggregation/Grouping: we want to keep the last record for each interval
+    aggregated = []
+    
+    if period == "1d":
+        # Group by hour: key is (year, month, day, hour)
+        groups = {}
+        for r in records:
+            key = (r.timestamp.year, r.timestamp.month, r.timestamp.day, r.timestamp.hour)
+            groups[key] = r
+        aggregated = list(groups.values())
+        
+    elif period in ("10d", "1m", "3m", "1y"):
+        # Group by day: key is (year, month, day)
+        groups = {}
+        for r in records:
+            key = (r.timestamp.year, r.timestamp.month, r.timestamp.day)
+            groups[key] = r
+        aggregated = list(groups.values())
+        
+    elif period == "5y":
+        # Group by week: key is (year, week_number)
+        groups = {}
+        for r in records:
+            iso = r.timestamp.isocalendar()
+            key = (iso[0], iso[1])
+            groups[key] = r
+        aggregated = list(groups.values())
+        
+    else:  # "all"
+        span_days = (records[-1].timestamp - records[0].timestamp).days
+        if span_days <= 365:
+            # Group by day
+            groups = {}
+            for r in records:
+                key = (r.timestamp.year, r.timestamp.month, r.timestamp.day)
+                groups[key] = r
+            aggregated = list(groups.values())
+        elif span_days <= 5 * 365:
+            # Group by week
+            groups = {}
+            for r in records:
+                iso = r.timestamp.isocalendar()
+                key = (iso[0], iso[1])
+                groups[key] = r
+            aggregated = list(groups.values())
+        else:
+            # Group by month: key is (year, month)
+            groups = {}
+            for r in records:
+                key = (r.timestamp.year, r.timestamp.month)
+                groups[key] = r
+            aggregated = list(groups.values())
+            
+    return sorted(aggregated, key=lambda r: r.timestamp)
+
 @app.get("/api/portfolio/history", response_model=List[HistorySchema])
-def get_portfolio_history(db: Session = Depends(get_db)):
-    return db.query(PortfolioHistory).order_by(PortfolioHistory.timestamp.asc()).all()
+def get_portfolio_history(period: str = "1m", db: Session = Depends(get_db)):
+    records = db.query(PortfolioHistory).all()
+    return aggregate_history(records, period)
 
 # 4. System Settings API
 @app.get("/api/settings")
