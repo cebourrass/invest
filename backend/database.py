@@ -66,14 +66,23 @@ def init_db():
     
     db = SessionLocal()
     try:
-        # Seed settings first
-        if db.query(SystemSetting).count() == 0:
-            db.add_all([
-                SystemSetting(key="update_hour", value="20"),
-                SystemSetting(key="update_minute", value="00"),
-                SystemSetting(key="update_interval", value="daily")
-            ])
-            db.commit()
+        # Seed settings (check and add if missing)
+        settings_to_seed = {
+            "update_hour": "20",
+            "update_minute": "00",
+            "update_interval": "daily",
+            "refresh_freq_PEA": "jour",
+            "refresh_freq_PER": "jour",
+            "refresh_freq_Assurance Vie": "jour",
+            "refresh_freq_Compte-Titres": "jour",
+            "refresh_freq_Crypto Wallet": "jour",
+            "refresh_freq_Autre": "jour"
+        }
+        for key, val in settings_to_seed.items():
+            exists = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+            if not exists:
+                db.add(SystemSetting(key=key, value=val))
+        db.commit()
 
         # Let's seed with some sample accounts if none exist, so the user has an immediate starting point
         if db.query(Account).count() == 0:

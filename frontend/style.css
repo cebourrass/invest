@@ -817,6 +817,29 @@ input:focus, select:focus {
     color: var(--color-primary);
 }
 
+.settings-freq-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 10px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 8px;
+}
+
+.settings-freq-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+    .settings-freq-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ==========================================================================
    Responsive adjustments
    ========================================================================== */

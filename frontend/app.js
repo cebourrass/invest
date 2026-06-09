@@ -941,22 +941,33 @@ async function fetchSettings() {
 }
 
 function updateSettingsUI() {
-    const intervalSelect = document.getElementById("settings-interval");
     const hourInput = document.getElementById("settings-hour");
     const minuteInput = document.getElementById("settings-minute");
     const statusText = document.getElementById("settings-status-text");
 
-    if (!intervalSelect || !hourInput || !minuteInput || !statusText) return;
+    const peaSelect = document.getElementById("settings-freq-pea");
+    const perSelect = document.getElementById("settings-freq-per");
+    const avSelect = document.getElementById("settings-freq-av");
+    const ctSelect = document.getElementById("settings-freq-ct");
+    const cwSelect = document.getElementById("settings-freq-cw");
+    const autreSelect = document.getElementById("settings-freq-autre");
 
-    if (systemSettings.update_interval) intervalSelect.value = systemSettings.update_interval;
+    if (!hourInput || !minuteInput || !statusText) return;
+
     if (systemSettings.update_hour) hourInput.value = parseInt(systemSettings.update_hour);
     if (systemSettings.update_minute) minuteInput.value = parseInt(systemSettings.update_minute);
 
-    const intervalLabel = intervalSelect.value === 'daily' ? 'quotidienne (chaque jour)' : 'hebdomadaire (le lundi)';
+    if (peaSelect && systemSettings.refresh_freq_PEA) peaSelect.value = systemSettings.refresh_freq_PEA;
+    if (perSelect && systemSettings.refresh_freq_PER) perSelect.value = systemSettings.refresh_freq_PER;
+    if (avSelect && systemSettings["refresh_freq_Assurance Vie"]) avSelect.value = systemSettings["refresh_freq_Assurance Vie"];
+    if (ctSelect && systemSettings["refresh_freq_Compte-Titres"]) ctSelect.value = systemSettings["refresh_freq_Compte-Titres"];
+    if (cwSelect && systemSettings["refresh_freq_Crypto Wallet"]) cwSelect.value = systemSettings["refresh_freq_Crypto Wallet"];
+    if (autreSelect && systemSettings.refresh_freq_Autre) autreSelect.value = systemSettings.refresh_freq_Autre;
+
     const formattedHour = String(hourInput.value || 20).padStart(2, '0');
     const formattedMinute = String(minuteInput.value || 0).padStart(2, '0');
     
-    statusText.textContent = `Planification active : ${intervalLabel} à ${formattedHour}:${formattedMinute}`;
+    statusText.textContent = `Planification personnalisée active (mise à jour quotidienne à ${formattedHour}:${formattedMinute})`;
 }
 
 function setupSettingsForm() {
@@ -965,9 +976,14 @@ function setupSettingsForm() {
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
             const payload = {
-                update_interval: document.getElementById("settings-interval").value,
                 update_hour: parseInt(document.getElementById("settings-hour").value),
-                update_minute: parseInt(document.getElementById("settings-minute").value)
+                update_minute: parseInt(document.getElementById("settings-minute").value),
+                refresh_freq_PEA: document.getElementById("settings-freq-pea").value,
+                refresh_freq_PER: document.getElementById("settings-freq-per").value,
+                "refresh_freq_Assurance Vie": document.getElementById("settings-freq-av").value,
+                "refresh_freq_Compte-Titres": document.getElementById("settings-freq-ct").value,
+                "refresh_freq_Crypto Wallet": document.getElementById("settings-freq-cw").value,
+                refresh_freq_Autre: document.getElementById("settings-freq-autre").value
             };
 
             try {

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.database import init_db, get_db, Account, Holding, PortfolioHistory, SystemSetting
 from backend.prices import fetch_price_for_holding
-from backend.scheduler import start_scheduler, update_portfolio_snapshot, reschedule_portfolio_job
+from backend.scheduler import start_scheduler, update_portfolio_snapshot, setup_jobs_for_all_types
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -366,44 +366,48 @@ def get_portfolio_history(db: Session = Depends(get_db)):
     return db.query(PortfolioHistory).order_by(PortfolioHistory.timestamp.asc()).all()
 
 # 4. System Settings API
-class SettingsUpdate(BaseModel):
-    update_hour: int = Field(..., ge=0, le=23)
-    update_minute: int = Field(..., ge=0, le=59)
-    update_interval: str = Field(..., example="daily")
-
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):
     db_settings = db.query(SystemSetting).all()
     return {s.key: s.value for s in db_settings}
 
 @app.put("/api/settings")
-def update_settings(settings: SettingsUpdate, db: Session = Depends(get_db)):
-    h_setting = db.query(SystemSetting).filter(SystemSetting.key == "update_hour").first()
-    m_setting = db.query(SystemSetting).filter(SystemSetting.key == "update_minute").first()
-    i_setting = db.query(SystemSetting).filter(SystemSetting.key == "update_interval").first()
-    
-    if not h_setting:
-        h_setting = SystemSetting(key="update_hour")
-        db.add(h_setting)
-    if not m_setting:
-        m_setting = SystemSetting(key="update_minute")
-        db.add(m_setting)
-    if not i_setting:
-        i_setting = SystemSetting(key="update_interval")
-        db.add(i_setting)
-        
-    h_setting.value = str(settings.update_hour)
-    m_setting.value = str(settings.update_minute)
-    i_setting.value = settings.update_interval
-    
+def update_settings(settings: dict, db: Session = Depends(get_db)):
+    try:
+        hour = int(settings.get("update_hour", 20))
+        minute = int(settings.get("update_minute", 0))
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Heure ou minute invalide")
+
+    allowed_keys = {
+        "update_hour": str(hour),
+        "update_minute": str(minute),
+        "refresh_freq_PEA": settings.get("refresh_freq_PEA", "jour"),
+        "refresh_freq_PER": settings.get("refresh_freq_PER", "jour"),
+        "refresh_freq_Assurance Vie": settings.get("refresh_freq_Assurance Vie", "jour"),
+        "refresh_freq_Compte-Titres": settings.get("refresh_freq_Compte-Titres", "jour"),
+        "refresh_freq_Crypto Wallet": settings.get("refresh_freq_Crypto Wallet", "jour"),
+        "refresh_freq_Autre": settings.get("refresh_freq_Autre", "jour"),
+    }
+
+    valid_freqs = {"minute", "hour", "jour", "manuel"}
+    for key in list(allowed_keys.keys())[2:]:  # skip hour and minute
+        if allowed_keys[key] not in valid_freqs:
+            raise HTTPException(status_code=400, detail=f"Fréquence invalide pour {key}")
+
+    for key, val in allowed_keys.items():
+        db_setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not db_setting:
+            db_setting = SystemSetting(key=key)
+            db.add(db_setting)
+        db_setting.value = val
+
     db.commit()
-    
+
     # Trigger hot rescheduling of scheduler
-    success = reschedule_portfolio_job(
-        hour=settings.update_hour,
-        minute=settings.update_minute,
-        interval=settings.update_interval
-    )
+    success = setup_jobs_for_all_types(db)
     
     return {
         "status": "success" if success else "error",

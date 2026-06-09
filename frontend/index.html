@@ -219,12 +219,62 @@
                     <form id="settings-form" class="settings-form">
                         <p class="settings-intro">Configurez la récurrence et l'heure précise des actualisations automatiques des cours et des prises de clichés historiques de votre portefeuille.</p>
                         
-                        <div class="form-group">
-                            <label for="settings-interval">Fréquence de mise à jour</label>
-                            <select id="settings-interval" required>
-                                <option value="daily">Quotidienne (Tous les jours)</option>
-                                <option value="weekly">Hebdomadaire (Tous les lundis)</option>
-                            </select>
+                        <div class="settings-freq-title">Fréquences de rafraîchissement par type de support</div>
+                        <div class="settings-freq-grid">
+                            <div class="form-group">
+                                <label for="settings-freq-pea">PEA</label>
+                                <select id="settings-freq-pea" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-freq-per">PER</label>
+                                <select id="settings-freq-per" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-freq-av">Assurance Vie</label>
+                                <select id="settings-freq-av" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-freq-ct">Compte-Titres</label>
+                                <select id="settings-freq-ct" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-freq-cw">Crypto Wallet</label>
+                                <select id="settings-freq-cw" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-freq-autre">Autre</label>
+                                <select id="settings-freq-autre" required>
+                                    <option value="minute">Chaque minute</option>
+                                    <option value="hour">Chaque heure</option>
+                                    <option value="jour">Chaque jour (à l'heure spécifiée)</option>
+                                    <option value="manuel">Manuelle uniquement</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="form-row">
