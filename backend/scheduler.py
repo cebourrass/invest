@@ -194,6 +194,17 @@ def setup_jobs_for_all_types(db: Session = None):
                 )
                 logger.info(f"Scheduled job {job_id} to run every minute")
                 
+            elif freq == "5minutes":
+                _scheduler.add_job(
+                    update_prices_for_account_type,
+                    'cron',
+                    args=[acc_type],
+                    id=job_id,
+                    replace_existing=True,
+                    minute='*/5'
+                )
+                logger.info(f"Scheduled job {job_id} to run every 5 minutes")
+                
             elif freq == "hour":
                 _scheduler.add_job(
                     update_prices_for_account_type,

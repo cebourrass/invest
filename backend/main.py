@@ -392,7 +392,7 @@ def update_settings(settings: dict, db: Session = Depends(get_db)):
         "refresh_freq_Autre": settings.get("refresh_freq_Autre", "jour"),
     }
 
-    valid_freqs = {"minute", "hour", "jour", "manuel"}
+    valid_freqs = {"minute", "5minutes", "hour", "jour", "manuel"}
     for key in list(allowed_keys.keys())[2:]:  # skip hour and minute
         if allowed_keys[key] not in valid_freqs:
             raise HTTPException(status_code=400, detail=f"Fréquence invalide pour {key}")
