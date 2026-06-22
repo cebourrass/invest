@@ -18,6 +18,8 @@ class Account(Base):
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)  # PEA, PER, Assurance Vie, Compte-Titres, Autre
     creation_date = Column(String, nullable=True)  # Format: YYYY-MM-DD
+    invested_amount = Column(Float, nullable=False, default=0.0)
+    cash_balance = Column(Float, nullable=False, default=0.0)
 
     holdings = relationship("Holding", back_populates="account", cascade="all, delete-orphan")
 
@@ -44,12 +46,43 @@ class PortfolioHistory(Base):
     total_value = Column(Float, nullable=False)
     total_gain = Column(Float, nullable=False)
     total_cost = Column(Float, nullable=False)
+    total_invested = Column(Float, nullable=True, default=0.0)
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String, nullable=False)
+
+class RecurringDeposit(Base):
+    __tablename__ = "recurring_deposits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
+    holding_id = Column(Integer, ForeignKey("holdings.id"), nullable=True)
+    name = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    frequency = Column(String, nullable=False)  # daily, weekly, monthly
+    day_of_period = Column(Integer, nullable=False)  # Day of month (1-31) or Day of week (0-6)
+    next_execution_date = Column(String, nullable=False)  # YYYY-MM-DD
+    last_execution_date = Column(String, nullable=True)  # YYYY-MM-DD
+    is_active = Column(Boolean, default=True)
+
+    account = relationship("Account")
+    holding = relationship("Holding")
+    history = relationship("RecurringDepositHistory", back_populates="recurring_deposit", cascade="all, delete-orphan")
+
+class RecurringDepositHistory(Base):
+    __tablename__ = "recurring_deposit_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recurring_deposit_id = Column(Integer, ForeignKey("recurring_deposits.id", ondelete="CASCADE"), nullable=False)
+    execution_date = Column(DateTime, default=datetime.datetime.utcnow)
+    amount = Column(Float, nullable=False)
+    status = Column(String, nullable=False)  # success, failed
+    details = Column(String, nullable=True)
+
+    recurring_deposit = relationship("RecurringDeposit", back_populates="history")
 
 def init_db():
     # Run manual migration first to ensure new column exists in SQLite
@@ -61,6 +94,21 @@ def init_db():
             with engine.begin() as conn:
                 from sqlalchemy import text
                 conn.execute(text("ALTER TABLE accounts ADD COLUMN creation_date VARCHAR"))
+        if 'invested_amount' not in columns:
+            with engine.begin() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN invested_amount FLOAT DEFAULT 0.0"))
+        if 'cash_balance' not in columns:
+            with engine.begin() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN cash_balance FLOAT DEFAULT 0.0"))
+
+    if inspector.has_table("portfolio_history"):
+        columns = [c['name'] for c in inspector.get_columns('portfolio_history')]
+        if 'total_invested' not in columns:
+            with engine.begin() as conn:
+                from sqlalchemy import text
+                conn.execute(text("ALTER TABLE portfolio_history ADD COLUMN total_invested FLOAT DEFAULT 0.0"))
 
     Base.metadata.create_all(bind=engine)
     
@@ -86,9 +134,9 @@ def init_db():
 
         # Let's seed with some sample accounts if none exist, so the user has an immediate starting point
         if db.query(Account).count() == 0:
-            pea = Account(name="PEA EasyBourse", type="PEA")
-            av = Account(name="Assurance Vie Linxea", type="Assurance Vie", creation_date="2020-01-01")
-            per = Account(name="PER Suravenir", type="PER")
+            pea = Account(name="PEA EasyBourse", type="PEA", cash_balance=150.0, invested_amount=6150.0)
+            av = Account(name="Assurance Vie Linxea", type="Assurance Vie", creation_date="2020-01-01", cash_balance=0.0, invested_amount=5000.0)
+            per = Account(name="PER Suravenir", type="PER", cash_balance=0.0, invested_amount=0.0)
             
             db.add_all([pea, av, per])
             db.commit()

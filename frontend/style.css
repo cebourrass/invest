@@ -376,6 +376,19 @@ h1, h2, h3, h4, h5, h6, .logo-area h2 {
     color: var(--color-danger);
 }
 
+.kpi-value.positive {
+    color: var(--color-success);
+}
+
+.kpi-value.negative {
+    color: var(--color-danger);
+}
+
+.kpi-icon.loss-icon {
+    background-color: rgba(244, 63, 94, 0.1);
+    color: var(--color-danger);
+}
+
 /* Glassmorphism utility card */
 .glass {
     background: var(--card-bg);
@@ -797,6 +810,52 @@ input:focus, select:focus {
     margin-bottom: 24px;
 }
 
+/* Maintenance section styles */
+.maintenance-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.maintenance-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.maintenance-control {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.maintenance-control select {
+    flex-grow: 1;
+    height: 42px;
+}
+
+.btn-danger {
+    background-color: var(--color-danger);
+    color: white;
+    height: 42px;
+    padding: 0 20px;
+    border: none;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.btn-danger:hover {
+    background-color: #e11d48;
+    box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-danger:active {
+    transform: translateY(0);
+}
+
+
 .settings-status {
     display: flex;
     align-items: center;
@@ -929,4 +988,68 @@ input:focus, select:focus {
         align-items: flex-start;
         gap: 16px;
     }
+}
+
+@media (max-width: 1100px) {
+    .dashboard-top-grid-cols {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Custom Toggle Switch for Deposits */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--text-muted);
+    transition: var(--transition-fast);
+    border-radius: 20px;
+}
+
+.slider-toggle:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: var(--transition-fast);
+    border-radius: 50%;
+}
+
+input:checked + .slider-toggle {
+    background-color: var(--color-success);
+}
+
+input:checked + .slider-toggle:before {
+    transform: translateX(16px);
+}
+
+.badge.success {
+    background-color: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge.failed {
+    background-color: rgba(244, 63, 94, 0.12);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.2);
 }

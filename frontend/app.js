@@ -7,6 +7,8 @@ let holdings = [];
 let portfolioSummary = null;
 let portfolioHistory = [];
 let currentPeriod = "1m";
+let deposits = [];
+let depositHistory = [];
 
 // Chart instances
 let historyChart = null;
@@ -108,6 +110,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 updateCharts();
             } else if (targetTab === 'settings') {
                 fetchSettings();
+            } else if (targetTab === 'deposits') {
+                fetchDepositsData();
             }
         });
     });
@@ -143,6 +147,8 @@ async function initApp() {
     await fetchSettings();
     setupModals();
     setupSettingsForm();
+    setupDepositForm();
+    setupMaintenance();
 }
 
 async function fetchHistory(period) {
@@ -212,25 +218,81 @@ function renderDashboard() {
 
     // KPI Values
     document.getElementById("kpi-total-val").textContent = formatCurrency(portfolioSummary.total_value);
-    document.getElementById("kpi-total-cost").textContent = `Coût d'achat total : ${formatCurrency(portfolioSummary.total_cost)}`;
-
+    const valSubEl = document.getElementById("kpi-total-val-subtext");
+    if (valSubEl) {
+        valSubEl.textContent = `Coût d'achat : ${formatCurrency(portfolioSummary.total_cost)} (${formatPercent(portfolioSummary.total_gain_pct)} latent)`;
+    }
+    
+    // Gain Global KPI
+    const gainValue = portfolioSummary.total_invested_gain;
+    const gainPct = portfolioSummary.total_invested_gain_pct;
     const gainEl = document.getElementById("kpi-total-gain");
     const gainPctEl = document.getElementById("kpi-total-gain-pct");
-    const gainValue = portfolioSummary.total_gain;
-    const gainPct = portfolioSummary.total_gain_pct;
+    const gainIconEl = document.getElementById("kpi-total-gain-icon");
+    
+    if (gainEl) {
+        gainEl.textContent = `${gainValue >= 0 ? '+' : ''}${formatCurrency(gainValue)}`;
+        gainEl.className = `kpi-value ${gainValue >= 0 ? 'positive' : 'negative'}`;
+    }
+    if (gainPctEl) {
+        gainPctEl.textContent = `${formatPercent(gainPct)} vs Argent Investi`;
+        gainPctEl.className = `kpi-subtext ${gainValue >= 0 ? 'positive' : 'negative'}`;
+    }
+    if (gainIconEl) {
+        if (gainValue >= 0) {
+            gainIconEl.className = "kpi-icon gain";
+            gainIconEl.innerHTML = `<i data-lucide="trending-up"></i>`;
+        } else {
+            gainIconEl.className = "kpi-icon loss-icon";
+            gainIconEl.innerHTML = `<i data-lucide="trending-down"></i>`;
+        }
+    }
 
-    gainEl.textContent = formatCurrency(gainValue);
-    gainPctEl.textContent = `${formatPercent(gainPct)} de performance globale`;
-
-    if (gainValue >= 0) {
-        gainEl.className = "kpi-value gain-status positive";
-        gainPctEl.className = "kpi-subtext positive";
-    } else {
-        gainEl.className = "kpi-value gain-status negative";
-        gainPctEl.className = "kpi-subtext negative";
+    // Invested KPI
+    document.getElementById("kpi-total-invested").textContent = formatCurrency(portfolioSummary.total_invested);
+    const investedSubEl = document.getElementById("kpi-total-invested-subtext");
+    if (investedSubEl) {
+        investedSubEl.textContent = "Total net des versements externes";
     }
 
     document.getElementById("kpi-accounts-count").textContent = accounts.length;
+
+    // Render Temporal Profitability Table
+    const tempBody = document.getElementById("temporal-profitability-body");
+    if (tempBody) {
+        tempBody.innerHTML = "";
+        
+        const periodLabels = {
+            "1d": "1 Jour",
+            "1w": "1 Semaine",
+            "1m": "1 Mois",
+            "5m": "5 Mois",
+            "1y": "1 An",
+            "global": "Global"
+        };
+        
+        Object.keys(periodLabels).forEach(key => {
+            const periodData = portfolioSummary.profitability_periods[key];
+            if (periodData) {
+                const tr = document.createElement("tr");
+                
+                const portClass = periodData.portfolio_return_abs >= 0 ? "positive" : "negative";
+                const invClass = periodData.invested_return_abs >= 0 ? "positive" : "negative";
+                
+                const portStr = `${formatCurrency(periodData.portfolio_return_abs)} (${formatPercent(periodData.portfolio_return_pct)})`;
+                const invStr = `${formatCurrency(periodData.invested_return_abs)} (${formatPercent(periodData.invested_return_pct)})`;
+                
+                const dateText = periodData.date ? ` <span style="font-size: 10px; color: var(--text-muted);">(${periodData.date})</span>` : "";
+                
+                tr.innerHTML = `
+                    <td style="font-weight: 500;">${periodLabels[key]}${dateText}</td>
+                    <td><span class="gain-status ${portClass}">${portStr}</span></td>
+                    <td><span class="gain-status ${invClass}">${invStr}</span></td>
+                `;
+                tempBody.appendChild(tr);
+            }
+        });
+    }
 
     // Render Accounts Performance Table
     const dbAccountsBody = document.getElementById("dashboard-accounts-body");
@@ -249,41 +311,39 @@ function renderDashboard() {
             // Sort by current value descending
             const sortedAccounts = [...accounts].map(acc => {
                 const accHoldings = holdings.filter(h => h.account_id === acc.id);
-                const cost = accHoldings.reduce((sum, h) => sum + h.total_cost, 0);
-                const val = accHoldings.reduce((sum, h) => sum + h.total_value, 0);
+                const cost = accHoldings.reduce((sum, h) => sum + h.total_cost, 0) + (acc.cash_balance || 0);
+                const val = accHoldings.reduce((sum, h) => sum + h.total_value, 0) + (acc.cash_balance || 0);
                 const gain = val - cost;
                 const gainPct = cost > 0 ? (gain / cost * 100) : 0.0;
-                return { ...acc, cost, val, gain, gainPct };
+                
+                const gainInvested = val - (acc.invested_amount || 0);
+                const gainInvestedPct = (acc.invested_amount || 0) > 0 ? (gainInvested / acc.invested_amount * 100) : 0.0;
+                
+                return { ...acc, cost, val, gain, gainPct, gainInvested, gainInvestedPct };
             }).sort((a, b) => b.val - a.val);
 
             sortedAccounts.forEach(acc => {
                 const tr = document.createElement("tr");
                 const gainClass = acc.gain >= 0 ? "positive" : "negative";
-                
-                const annReturn = calculateAnnualizedReturn(acc.gainPct, acc.creation_date);
-                const annReturnStr = annReturn !== null ? formatPercent(annReturn) : "-";
-                const annReturnClass = annReturn !== null ? (annReturn >= 0 ? "positive" : "negative") : "";
+                const gainInvestedClass = acc.gainInvested >= 0 ? "positive" : "negative";
 
                 tr.innerHTML = `
                     <td>
                         <span class="badge ${getAccountBadgeClass(acc.type)}">${acc.name}</span>
                     </td>
                     <td><code>${acc.type}</code></td>
+                    <td>${formatCurrency(acc.invested_amount || 0)}</td>
                     <td>${formatCurrency(acc.cost)}</td>
+                    <td>${formatCurrency(acc.cash_balance || 0)}</td>
                     <td><strong>${formatCurrency(acc.val)}</strong></td>
-                    <td>
-                        <span class="gain-status ${gainClass}">
-                            ${formatCurrency(acc.gain)}
-                        </span>
-                    </td>
                     <td>
                         <span class="gain-status ${gainClass}">
                             ${formatPercent(acc.gainPct)}
                         </span>
                     </td>
                     <td>
-                        <span class="gain-status ${annReturnClass}">
-                            ${annReturnStr}
+                        <span class="gain-status ${gainInvestedClass}">
+                            ${formatPercent(acc.gainInvestedPct)}
                         </span>
                     </td>
                 `;
@@ -394,6 +454,7 @@ function updateCharts() {
         });
         const values = sortedHistory.map(h => h.total_value);
         const costs = sortedHistory.map(h => h.total_cost);
+        const invested = sortedHistory.map(h => h.total_invested || h.total_cost);
 
         historyChart = new Chart(histCanvas, {
             type: 'line',
@@ -404,7 +465,7 @@ function updateCharts() {
                         label: 'Valeur du Portefeuille',
                         data: values,
                         borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.05)',
                         fill: true,
                         tension: 0.3,
                         borderWidth: 3
@@ -412,8 +473,18 @@ function updateCharts() {
                     {
                         label: 'Coût d\'acquisition',
                         data: costs,
-                        borderColor: '#4b5563',
+                        borderColor: '#71717a',
                         borderDash: [5, 5],
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.1,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Argent Investi',
+                        data: invested,
+                        borderColor: '#10b981',
+                        borderDash: [2, 2],
                         backgroundColor: 'transparent',
                         fill: false,
                         tension: 0.1,
@@ -554,15 +625,23 @@ function renderAccountsList() {
     accounts.forEach(acc => {
         // Calculate account stats
         const accHoldings = holdings.filter(h => h.account_id === acc.id);
-        const cost = accHoldings.reduce((sum, h) => sum + h.total_cost, 0);
-        const val = accHoldings.reduce((sum, h) => sum + h.total_value, 0);
+        const cost = accHoldings.reduce((sum, h) => sum + h.total_cost, 0) + (acc.cash_balance || 0);
+        const val = accHoldings.reduce((sum, h) => sum + h.total_value, 0) + (acc.cash_balance || 0);
         const gain = val - cost;
         const gainPct = cost > 0 ? (gain / cost * 100) : 0.0;
         const gainClass = gain >= 0 ? "positive" : "negative";
 
+        const gainInvested = val - (acc.invested_amount || 0);
+        const gainInvestedPct = (acc.invested_amount || 0) > 0 ? (gainInvested / acc.invested_amount * 100) : 0.0;
+        const gainInvestedClass = gainInvested >= 0 ? "positive" : "negative";
+
         const annReturn = calculateAnnualizedReturn(gainPct, acc.creation_date);
         const annReturnStr = annReturn !== null ? formatPercent(annReturn) : "-";
         const annReturnClass = annReturn !== null ? (annReturn >= 0 ? "positive" : "negative") : "";
+
+        const annReturnInvested = calculateAnnualizedReturn(gainInvestedPct, acc.creation_date);
+        const annReturnInvestedStr = annReturnInvested !== null ? formatPercent(annReturnInvested) : "-";
+        const annReturnInvestedClass = annReturnInvested !== null ? (annReturnInvested >= 0 ? "positive" : "negative") : "";
 
         // Format creation date nicely
         let creationDateFormatted = "Non renseignée";
@@ -595,16 +674,32 @@ function renderAccountsList() {
                     <span class="val">${creationDateFormatted}</span>
                 </div>
                 <div class="account-value-row">
+                    <span class="label">Argent investi</span>
+                    <span class="val">${formatCurrency(acc.invested_amount || 0)}</span>
+                </div>
+                <div class="account-value-row">
+                    <span class="label">Liquidités</span>
+                    <span class="val">${formatCurrency(acc.cash_balance || 0)}</span>
+                </div>
+                <div class="account-value-row">
                     <span class="label">Coût d'achat</span>
                     <span class="val">${formatCurrency(cost)}</span>
                 </div>
                 <div class="account-value-row">
-                    <span class="label">Gain / Perte</span>
+                    <span class="label">Gain / Coût</span>
                     <span class="val gain-status ${gainClass}">${formatCurrency(gain)} (${formatPercent(gainPct)})</span>
                 </div>
                 <div class="account-value-row">
-                    <span class="label">Rentabilité p.a.</span>
+                    <span class="label">Gain / Investi</span>
+                    <span class="val gain-status ${gainInvestedClass}">${formatCurrency(gainInvested)} (${formatPercent(gainInvestedPct)})</span>
+                </div>
+                <div class="account-value-row">
+                    <span class="label">Rentabilité p.a. (Coût)</span>
                     <span class="val gain-status ${annReturnClass}">${annReturnStr}</span>
+                </div>
+                <div class="account-value-row">
+                    <span class="label">Rentabilité p.a. (Investi)</span>
+                    <span class="val gain-status ${annReturnInvestedClass}">${annReturnInvestedStr}</span>
                 </div>
                 <div class="account-value-row grand-total">
                     <span class="label">Valeur actuelle</span>
@@ -837,6 +932,8 @@ function openAccountAddModal() {
     document.getElementById("account-modal-title").textContent = "Ajouter un Compte Support";
     document.getElementById("account-form").reset();
     document.getElementById("account-id").value = "";
+    document.getElementById("account-invested").value = "";
+    document.getElementById("account-cash").value = "";
     document.getElementById("account-submit-btn").textContent = "Créer";
     modal.classList.add("active");
 }
@@ -852,6 +949,8 @@ function openAccountEditModal(id) {
     document.getElementById("account-name").value = acc.name;
     document.getElementById("account-type").value = acc.type;
     document.getElementById("account-creation-date").value = acc.creation_date || "";
+    document.getElementById("account-invested").value = acc.invested_amount || 0;
+    document.getElementById("account-cash").value = acc.cash_balance || 0;
     document.getElementById("account-submit-btn").textContent = "Sauvegarder";
     
     modal.classList.add("active");
@@ -861,11 +960,15 @@ async function handleAccountFormSubmit(e) {
     e.preventDefault();
     const id = document.getElementById("account-id").value;
     const creationDateValue = document.getElementById("account-creation-date").value;
+    const investedValue = parseFloat(document.getElementById("account-invested").value) || 0.0;
+    const cashValue = parseFloat(document.getElementById("account-cash").value) || 0.0;
     
     const payload = {
         name: document.getElementById("account-name").value,
         type: document.getElementById("account-type").value,
-        creation_date: creationDateValue ? creationDateValue : null
+        creation_date: creationDateValue ? creationDateValue : null,
+        invested_amount: investedValue,
+        cash_balance: cashValue
     };
 
     try {
@@ -1033,5 +1136,527 @@ function setupSettingsForm() {
                 alert("Une erreur s'est produite lors de l'enregistrement.");
             }
         });
+    }
+}
+
+function setupMaintenance() {
+    const cleanPortfolioBtn = document.getElementById("btn-clean-portfolio-history");
+    const cleanDepositsBtn = document.getElementById("btn-clean-deposits-history");
+
+    if (cleanPortfolioBtn) {
+        cleanPortfolioBtn.addEventListener("click", () => {
+            const periodSelect = document.getElementById("maintenance-history-period");
+            const periodValue = periodSelect.value;
+            
+            let url = `${API_URL}/api/portfolio/history`;
+            let confirmMessage = "Voulez-vous vraiment supprimer tout l'historique du portefeuille ?\nUn cliché de l'état actuel sera créé pour éviter un graphique vide.";
+            
+            if (periodValue !== "all") {
+                url += `?keep_days=${periodValue}`;
+                confirmMessage = `Voulez-vous vraiment supprimer l'historique du portefeuille datant de plus de ${periodValue} jours ?`;
+            }
+            
+            showConfirmModal(
+                "Confirmer le nettoyage de l'historique",
+                confirmMessage,
+                async () => {
+                    try {
+                        const response = await fetch(url, { method: "DELETE" });
+                        if (response.ok) {
+                            const res = await response.json();
+                            alert(res.message || "Nettoyage effectué.");
+                            // Refresh dashboard & history chart
+                            await fetchAllData();
+                        } else {
+                            const err = await response.json();
+                            alert(`Erreur: ${err.detail || "Le nettoyage a échoué."}`);
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert("Erreur réseau lors de la tentative de nettoyage.");
+                    }
+                }
+            );
+        });
+    }
+
+    if (cleanDepositsBtn) {
+        cleanDepositsBtn.addEventListener("click", () => {
+            const periodSelect = document.getElementById("maintenance-deposits-period");
+            const periodValue = periodSelect.value;
+            
+            let url = `${API_URL}/api/deposits/history`;
+            let confirmMessage = "Voulez-vous vraiment supprimer tout l'historique d'exécution des versements ?";
+            
+            if (periodValue !== "all") {
+                url += `?keep_days=${periodValue}`;
+                confirmMessage = `Voulez-vous vraiment supprimer l'historique d'exécution des versements datant de plus de ${periodValue} jours ?`;
+            }
+            
+            showConfirmModal(
+                "Confirmer le nettoyage des versements",
+                confirmMessage,
+                async () => {
+                    try {
+                        const response = await fetch(url, { method: "DELETE" });
+                        if (response.ok) {
+                            const res = await response.json();
+                            alert(res.message || "Nettoyage effectué.");
+                            // Refresh deposits data & history
+                            await fetchDepositsData();
+                        } else {
+                            const err = await response.json();
+                            alert(`Erreur: ${err.detail || "Le nettoyage a échoué."}`);
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert("Erreur réseau lors de la tentative de nettoyage.");
+                    }
+                }
+            );
+        });
+    }
+}
+
+// --- RECURRING DEPOSITS FRONTEND LOGIC ---
+
+async function fetchDepositsData() {
+    try {
+        const [depositsRes, historyRes] = await Promise.all([
+            fetch(`${API_URL}/api/deposits`),
+            fetch(`${API_URL}/api/deposits/history`)
+        ]);
+        if (depositsRes.ok && historyRes.ok) {
+            deposits = await depositsRes.json();
+            depositHistory = await historyRes.json();
+            renderDeposits();
+        }
+    } catch (err) {
+        console.error("Erreur lors de la récupération des versements réguliers:", err);
+    }
+}
+
+function renderDeposits() {
+    // 1. Calculate Monthly savings KPI
+    let monthlyTotal = 0;
+    let activeCount = 0;
+    
+    deposits.forEach(dep => {
+        if (dep.is_active) {
+            activeCount++;
+            if (dep.frequency === 'daily') {
+                monthlyTotal += dep.amount * 30;
+            } else if (dep.frequency === 'weekly') {
+                monthlyTotal += dep.amount * 4.33;
+            } else if (dep.frequency === 'monthly') {
+                monthlyTotal += dep.amount;
+            }
+        }
+    });
+
+    document.getElementById("kpi-deposit-monthly-total").textContent = formatCurrency(monthlyTotal);
+    document.getElementById("kpi-deposit-active-count").textContent = activeCount;
+    document.getElementById("kpi-deposit-total-count").textContent = `${deposits.length} plan(s) programmé(s) au total`;
+
+    // Next scheduled KPI
+    const activeDeposits = deposits.filter(d => d.is_active);
+    const nextAmountEl = document.getElementById("kpi-deposit-next-amount");
+    const nextDateEl = document.getElementById("kpi-deposit-next-date");
+
+    if (activeDeposits.length > 0) {
+        // Sort by next execution date
+        activeDeposits.sort((a, b) => new Date(a.next_execution_date) - new Date(b.next_execution_date));
+        const soonest = activeDeposits[0];
+        nextAmountEl.textContent = formatCurrency(soonest.amount);
+        
+        const nextDt = new Date(soonest.next_execution_date);
+        const formattedDate = nextDt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        nextDateEl.textContent = `${soonest.name} le ${formattedDate}`;
+    } else {
+        nextAmountEl.textContent = "0,00 €";
+        nextDateEl.textContent = "Aucun plan actif";
+    }
+
+    // 2. Render Scheduled Deposits Table
+    const tbody = document.getElementById("deposits-table-body");
+    tbody.innerHTML = "";
+
+    if (deposits.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    Aucun versement régulier planifié. Cliquez sur "Planifier un versement" pour commencer !
+                </td>
+            </tr>
+        `;
+    } else {
+        deposits.forEach(dep => {
+            const tr = document.createElement("tr");
+            
+            // Format schedule description
+            let scheduleDesc = "";
+            let freqLabel = "";
+            if (dep.frequency === 'daily') {
+                freqLabel = "Quotidien";
+                scheduleDesc = "Chaque jour";
+            } else if (dep.frequency === 'weekly') {
+                freqLabel = "Hebdomadaire";
+                const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+                const dayName = days[dep.day_of_period] || "Jour inconnu";
+                scheduleDesc = `Chaque ${dayName}`;
+            } else if (dep.frequency === 'monthly') {
+                freqLabel = "Mensuel";
+                scheduleDesc = `Le ${dep.day_of_period} du mois`;
+            }
+
+            const holdingLabel = dep.holding_name ? 
+                `<span class="badge etf">${dep.holding_name}</span>` : 
+                `<span class="badge autre" style="color: var(--text-muted);">Liquidités / Cash</span>`;
+
+            const nextExecutionFormatted = dep.next_execution_date ? 
+                new Date(dep.next_execution_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 
+                "-";
+
+            tr.innerHTML = `
+                <td><strong>${dep.name}</strong></td>
+                <td><span class="badge ${getAccountBadgeClass(dep.account_name.split(' ')[0] || 'Autre')}">${dep.account_name}</span></td>
+                <td>${holdingLabel}</td>
+                <td><strong>${formatCurrency(dep.amount)}</strong></td>
+                <td><code>${freqLabel}</code></td>
+                <td style="color: var(--text-secondary); font-size: 13px;">${scheduleDesc}</td>
+                <td>${nextExecutionFormatted}</td>
+                <td>
+                    <label class="switch">
+                        <input type="checkbox" ${dep.is_active ? 'checked' : ''} onchange="toggleDepositActive(${dep.id}, this.checked)">
+                        <span class="slider-toggle"></span>
+                    </label>
+                </td>
+                <td class="actions-cell">
+                    <button class="table-action-btn edit" onclick="triggerDepositNow(${dep.id})" title="Exécuter maintenant" style="color: var(--color-success);">
+                        <i data-lucide="play"></i>
+                    </button>
+                    <button class="table-action-btn edit" onclick="openDepositEditModal(${dep.id})" title="Modifier">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                    <button class="table-action-btn delete" onclick="deleteDeposit(${dep.id})" title="Supprimer">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // 3. Render Execution History Table
+    const histBody = document.getElementById("deposit-history-table-body");
+    histBody.innerHTML = "";
+
+    if (depositHistory.length === 0) {
+        histBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    Aucun historique de versement disponible.
+                </td>
+            </tr>
+        `;
+    } else {
+        depositHistory.forEach(rec => {
+            const tr = document.createElement("tr");
+            
+            const execDate = new Date(rec.execution_date);
+            const formattedTime = execDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + 
+                ' ' + execDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            const statusClass = rec.status === 'success' ? 'success' : 'failed';
+            const statusLabel = rec.status === 'success' ? 'Succès' : 'Échec';
+
+            tr.innerHTML = `
+                <td style="color: var(--text-secondary); font-size: 13px;">${formattedTime}</td>
+                <td><strong>${rec.deposit_name}</strong></td>
+                <td><span class="badge ${getAccountBadgeClass(rec.account_name.split(' ')[0] || 'Autre')}">${rec.account_name}</span></td>
+                <td><strong>${formatCurrency(rec.amount)}</strong></td>
+                <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+                <td style="color: var(--text-secondary); font-size: 13px; font-style: italic;">${rec.details || "-"}</td>
+            `;
+            histBody.appendChild(tr);
+        });
+    }
+
+    lucide.createIcons();
+}
+
+function updateDepositHoldingsDropdown(selectedAccountId, targetSelectId, selectedHoldingId = null) {
+    const holdingSelect = document.getElementById(targetSelectId);
+    holdingSelect.innerHTML = `<option value="">-- Conserver en Liquidités (Non investi) --</option>`;
+    
+    if (!selectedAccountId) return;
+
+    const filteredHoldings = holdings.filter(h => h.account_id === parseInt(selectedAccountId));
+    filteredHoldings.forEach(h => {
+        const opt = document.createElement("option");
+        opt.value = h.id;
+        opt.textContent = `${h.name} (${h.category} - ISIN: ${h.isin_or_symbol || 'Manuel'})`;
+        if (selectedHoldingId && h.id === parseInt(selectedHoldingId)) {
+            opt.selected = true;
+        }
+        holdingSelect.appendChild(opt);
+    });
+}
+
+function setupDepositForm() {
+    // Populate holdings when account changes in modal
+    const accountSelect = document.getElementById("deposit-account");
+    accountSelect.addEventListener("change", (e) => {
+        updateDepositHoldingsDropdown(e.target.value, "deposit-holding");
+    });
+
+    // Update label and limits based on frequency selection
+    const freqSelect = document.getElementById("deposit-frequency");
+    const dayLabel = document.getElementById("deposit-day-label");
+    const dayInput = document.getElementById("deposit-day-of-period");
+
+    freqSelect.addEventListener("change", () => {
+        if (freqSelect.value === 'daily') {
+            dayLabel.textContent = "Jour (Sans objet)";
+            dayInput.value = 1;
+            dayInput.disabled = true;
+            dayInput.required = false;
+        } else if (freqSelect.value === 'weekly') {
+            dayLabel.textContent = "Jour de la semaine (0=Lundi, 6=Dimanche)";
+            dayInput.value = 0;
+            dayInput.min = 0;
+            dayInput.max = 6;
+            dayInput.disabled = false;
+            dayInput.required = true;
+        } else if (freqSelect.value === 'monthly') {
+            dayLabel.textContent = "Jour du mois (1 - 31)";
+            dayInput.value = 5;
+            dayInput.min = 1;
+            dayInput.max = 31;
+            dayInput.disabled = false;
+            dayInput.required = true;
+        }
+    });
+
+    // Open button
+    document.getElementById("open-deposit-modal").addEventListener("click", () => {
+        openDepositAddModal();
+    });
+
+    // Close buttons
+    const depositModal = document.getElementById("deposit-modal");
+    document.getElementById("close-deposit-modal").addEventListener("click", () => depositModal.classList.remove("active"));
+    document.getElementById("cancel-deposit-form").addEventListener("click", () => depositModal.classList.remove("active"));
+
+    // Form submit
+    document.getElementById("deposit-form").addEventListener("submit", handleDepositFormSubmit);
+}
+
+function populateDepositAccountsDropdown(selectedAccountId = null) {
+    const select = document.getElementById("deposit-account");
+    select.innerHTML = "";
+    
+    if (accounts.length === 0) {
+        select.innerHTML = `<option value="">-- Veuillez créer un compte support d'abord --</option>`;
+        return;
+    }
+
+    accounts.forEach(acc => {
+        const opt = document.createElement("option");
+        opt.value = acc.id;
+        opt.textContent = `${acc.name} (${acc.type})`;
+        if (selectedAccountId && acc.id === parseInt(selectedAccountId)) {
+            opt.selected = true;
+        }
+        select.appendChild(opt);
+    });
+}
+
+function openDepositAddModal() {
+    const modal = document.getElementById("deposit-modal");
+    document.getElementById("deposit-modal-title").textContent = "Planifier un Versement";
+    document.getElementById("deposit-form").reset();
+    document.getElementById("deposit-id").value = "";
+    
+    populateDepositAccountsDropdown();
+    
+    // Set default day input constraints and next execution date to tomorrow
+    const dayInput = document.getElementById("deposit-day-of-period");
+    dayInput.disabled = false;
+    dayInput.required = true;
+    dayInput.value = 5;
+    document.getElementById("deposit-day-label").textContent = "Jour du mois (1 - 31)";
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById("deposit-next-date").value = tomorrow.toISOString().split('T')[0];
+
+    // Trigger holdings loading for first account
+    if (accounts.length > 0) {
+        updateDepositHoldingsDropdown(accounts[0].id, "deposit-holding");
+    }
+
+    modal.classList.add("active");
+    lucide.createIcons();
+}
+
+function openDepositEditModal(id) {
+    const dep = deposits.find(item => item.id === id);
+    if (!dep) return;
+
+    const modal = document.getElementById("deposit-modal");
+    document.getElementById("deposit-modal-title").textContent = "Modifier le Versement";
+    
+    document.getElementById("deposit-id").value = dep.id;
+    document.getElementById("deposit-name").value = dep.name;
+    
+    populateDepositAccountsDropdown(dep.account_id);
+    updateDepositHoldingsDropdown(dep.account_id, "deposit-holding", dep.holding_id);
+    
+    document.getElementById("deposit-amount").value = dep.amount;
+    
+    const freqSelect = document.getElementById("deposit-frequency");
+    freqSelect.value = dep.frequency;
+    
+    const dayInput = document.getElementById("deposit-day-of-period");
+    const dayLabel = document.getElementById("deposit-day-label");
+    
+    if (dep.frequency === 'daily') {
+        dayLabel.textContent = "Jour (Sans objet)";
+        dayInput.value = 1;
+        dayInput.disabled = true;
+        dayInput.required = false;
+    } else if (dep.frequency === 'weekly') {
+        dayLabel.textContent = "Jour de la semaine (0=Lundi, 6=Dimanche)";
+        dayInput.value = dep.day_of_period;
+        dayInput.min = 0;
+        dayInput.max = 6;
+        dayInput.disabled = false;
+        dayInput.required = true;
+    } else if (dep.frequency === 'monthly') {
+        dayLabel.textContent = "Jour du mois (1 - 31)";
+        dayInput.value = dep.day_of_period;
+        dayInput.min = 1;
+        dayInput.max = 31;
+        dayInput.disabled = false;
+        dayInput.required = true;
+    }
+
+    document.getElementById("deposit-next-date").value = dep.next_execution_date;
+    
+    modal.classList.add("active");
+    lucide.createIcons();
+}
+
+async function handleDepositFormSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById("deposit-id").value;
+    const account_id = parseInt(document.getElementById("deposit-account").value);
+    
+    if (!account_id) {
+        alert("Veuillez sélectionner un compte support.");
+        return;
+    }
+
+    const holdingVal = document.getElementById("deposit-holding").value;
+    const holding_id = holdingVal ? parseInt(holdingVal) : null;
+
+    const payload = {
+        account_id: account_id,
+        holding_id: holding_id,
+        name: document.getElementById("deposit-name").value,
+        amount: parseFloat(document.getElementById("deposit-amount").value),
+        frequency: document.getElementById("deposit-frequency").value,
+        day_of_period: parseInt(document.getElementById("deposit-day-of-period").value) || 1,
+        next_execution_date: document.getElementById("deposit-next-date").value,
+        is_active: true
+    };
+
+    try {
+        let response;
+        if (id) {
+            response = await fetch(`${API_URL}/api/deposits/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            response = await fetch(`${API_URL}/api/deposits`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (response.ok) {
+            document.getElementById("deposit-modal").classList.remove("active");
+            // Refresh deposits, and also account values and holdings in case of immediate runs/modifications
+            await fetchAllData(); 
+            await fetchDepositsData();
+        } else {
+            const err = await response.json();
+            alert(`Erreur: ${err.detail || "Validation échouée"}`);
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Erreur lors de la sauvegarde du versement.");
+    }
+}
+
+async function toggleDepositActive(id, isActive) {
+    try {
+        const response = await fetch(`${API_URL}/api/deposits/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_active: isActive })
+        });
+        if (response.ok) {
+            await fetchDepositsData();
+        } else {
+            alert("Erreur lors du changement de statut.");
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function deleteDeposit(id) {
+    const dep = deposits.find(d => d.id === id);
+    const depName = dep ? dep.name : "ce versement";
+    showConfirmModal(
+        "Supprimer la planification ?",
+        `Voulez-vous vraiment supprimer la planification du versement "${depName}" ?`,
+        async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/deposits/${id}`, { method: "DELETE" });
+                if (response.ok) {
+                    await fetchDepositsData();
+                } else {
+                    alert("Impossible de supprimer la planification.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    );
+}
+
+async function triggerDepositNow(id) {
+    try {
+        const response = await fetch(`${API_URL}/api/deposits/${id}/trigger`, { method: "POST" });
+        if (response.ok) {
+            const res = await response.json();
+            alert(`Succès : ${res.message}\n${res.details}`);
+            // Fetch everything again so holdings and dashboard are synchronized
+            await fetchAllData();
+            await fetchDepositsData();
+        } else {
+            const err = await response.json();
+            alert(`Échec : ${err.detail || "Le versement n'a pas pu être exécuté."}`);
+            await fetchDepositsData(); // Refresh history log which might have failure log
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Une erreur s'est produite lors de l'exécution.");
     }
 }

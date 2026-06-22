@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- CSS stylesheet -->
-    <link rel="stylesheet" href="style.css?v=1.1">
+    <link rel="stylesheet" href="style.css?v=1.2">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js -->
@@ -38,6 +38,10 @@
                 <button class="nav-btn" data-tab="accounts" id="tab-accounts">
                     <i data-lucide="wallet"></i>
                     <span>Comptes Supports</span>
+                </button>
+                <button class="nav-btn" data-tab="deposits" id="tab-deposits">
+                    <i data-lucide="repeat"></i>
+                    <span>Versements</span>
                 </button>
                 <button class="nav-btn" data-tab="settings" id="tab-settings">
                     <i data-lucide="settings"></i>
@@ -73,25 +77,34 @@
                 <div class="kpi-grid">
                     <div class="kpi-card glass">
                         <div class="kpi-header">
-                            <span class="kpi-title">Valeur Totale</span>
+                            <span class="kpi-title">Valeur Actuelle</span>
                             <div class="kpi-icon total"><i data-lucide="banknote"></i></div>
                         </div>
                         <div class="kpi-value" id="kpi-total-val">0,00 €</div>
-                        <div class="kpi-subtext" id="kpi-total-cost">Coût d'achat: 0,00 €</div>
+                        <div class="kpi-subtext" id="kpi-total-val-subtext">Valeur estimée de vos actifs</div>
                     </div>
 
                     <div class="kpi-card glass">
                         <div class="kpi-header">
-                            <span class="kpi-title">Plus-value Latente</span>
-                            <div class="kpi-icon gain"><i data-lucide="percent"></i></div>
+                            <span class="kpi-title">Gain Global</span>
+                            <div class="kpi-icon gain" id="kpi-total-gain-icon"><i data-lucide="trending-up"></i></div>
                         </div>
                         <div class="kpi-value" id="kpi-total-gain">0,00 €</div>
-                        <div class="kpi-subtext" id="kpi-total-gain-pct">--% de performance globale</div>
+                        <div class="kpi-subtext" id="kpi-total-gain-pct">--% vs Argent Investi</div>
                     </div>
 
                     <div class="kpi-card glass">
                         <div class="kpi-header">
-                            <span class="kpi-title">Répartition Comptes</span>
+                            <span class="kpi-title">Argent Investi</span>
+                            <div class="kpi-icon accounts"><i data-lucide="wallet"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-total-invested">0,00 €</div>
+                        <div class="kpi-subtext" id="kpi-total-invested-subtext">Total net des versements externes</div>
+                    </div>
+
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Comptes Supports</span>
                             <div class="kpi-icon accounts"><i data-lucide="wallet"></i></div>
                         </div>
                         <div class="kpi-value" id="kpi-accounts-count">0</div>
@@ -101,22 +114,44 @@
 
                 <!-- Top Section: Line Chart & Accounts Performance -->
                 <div class="dashboard-top-section">
-                    <!-- History Chart -->
-                    <div class="chart-card glass">
-                        <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-                            <h3 style="margin-bottom: 0;">Évolution Historique</h3>
-                            <div class="period-selectors">
-                                <button class="period-btn" data-period="1d">1 J</button>
-                                <button class="period-btn" data-period="10d">10 J</button>
-                                <button class="period-btn active" data-period="1m">1 M</button>
-                                <button class="period-btn" data-period="3m">3 M</button>
-                                <button class="period-btn" data-period="1y">1 A</button>
-                                <button class="period-btn" data-period="5y">5 A</button>
-                                <button class="period-btn" data-period="all">Tout</button>
+                    <!-- Grid containing Chart and Temporal Profitability -->
+                    <div class="dashboard-top-grid-cols" style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 24px;">
+                        <!-- History Chart -->
+                        <div class="chart-card glass" style="margin-bottom: 0;">
+                            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                                <h3 style="margin-bottom: 0;">Évolution Historique</h3>
+                                <div class="period-selectors">
+                                    <button class="period-btn" data-period="1d">1 J</button>
+                                    <button class="period-btn" data-period="10d">10 J</button>
+                                    <button class="period-btn active" data-period="1m">1 M</button>
+                                    <button class="period-btn" data-period="3m">3 M</button>
+                                    <button class="period-btn" data-period="1y">1 A</button>
+                                    <button class="period-btn" data-period="5y">5 A</button>
+                                    <button class="period-btn" data-period="all">Tout</button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="history-chart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="history-chart"></canvas>
+
+                        <!-- Temporal Profitability Table -->
+                        <div class="chart-card glass" style="margin-bottom: 0; padding: 24px;">
+                            <h3 style="font-size: 16px; margin-bottom: 20px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Rentabilité Temporelle</h3>
+                            <div class="table-container" style="border: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;">
+                                <table class="data-table" id="temporal-profitability-table" style="font-size: 13px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Période</th>
+                                            <th>vs Coût</th>
+                                            <th>vs Investi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="temporal-profitability-body">
+                                        <!-- Injected dynamically by app.js -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -129,11 +164,12 @@
                                     <tr>
                                         <th>Compte Support</th>
                                         <th>Type</th>
+                                        <th>Argent Investi</th>
                                         <th>Coût d'Acquisition</th>
+                                        <th>Liquidités</th>
                                         <th>Valeur Actuelle</th>
-                                        <th>Plus-value / Moins-value</th>
-                                        <th>Profitabilité</th>
-                                        <th>Rentabilité / an</th>
+                                        <th>Perf vs Coût</th>
+                                        <th>Perf vs Investi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="dashboard-accounts-body">
@@ -217,6 +253,90 @@
 
                 <div class="accounts-grid" id="accounts-list-container">
                     <!-- Injected by app.js -->
+                </div>
+             </section>
+
+            <!-- TAB 5: RECURRING DEPOSITS -->
+            <section id="pane-deposits" class="tab-pane">
+                <div class="action-bar">
+                    <h2>Versements réguliers</h2>
+                    <button class="add-btn" id="open-deposit-modal">
+                        <i data-lucide="plus"></i>
+                        <span>Planifier un versement</span>
+                    </button>
+                </div>
+
+                <!-- KPI Metrics Grid -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Épargne Mensuelle</span>
+                            <div class="kpi-icon total"><i data-lucide="repeat"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-deposit-monthly-total">0,00 €</div>
+                        <div class="kpi-subtext">Total mensuel cumulé des versements actifs</div>
+                    </div>
+
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Plans Actifs</span>
+                            <div class="kpi-icon accounts"><i data-lucide="activity"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-deposit-active-count">0</div>
+                        <div class="kpi-subtext" id="kpi-deposit-total-count">0 plans programmés au total</div>
+                    </div>
+
+                    <div class="kpi-card glass">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Prochain Versement</span>
+                            <div class="kpi-icon gain"><i data-lucide="calendar"></i></div>
+                        </div>
+                        <div class="kpi-value" id="kpi-deposit-next-amount">0,00 €</div>
+                        <div class="kpi-subtext" id="kpi-deposit-next-date">Aucun plan actif</div>
+                    </div>
+                </div>
+
+                <!-- Planned Deposits Table -->
+                <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Versements Programmés</h3>
+                <div class="table-container glass" style="margin-bottom: 40px;">
+                    <table class="data-table" id="deposits-table">
+                        <thead>
+                            <tr>
+                                <th>Versement</th>
+                                <th>Compte Support</th>
+                                <th>Placement Cible</th>
+                                <th>Montant</th>
+                                <th>Fréquence</th>
+                                <th>Calendrier</th>
+                                <th>Prochaine Date</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deposits-table-body">
+                            <!-- Injected by app.js -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- History Logs -->
+                <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Historique d'Exécution</h3>
+                <div class="table-container glass">
+                    <table class="data-table" id="deposit-history-table">
+                        <thead>
+                            <tr>
+                                <th>Date d'Exécution</th>
+                                <th>Versement</th>
+                                <th>Compte Support</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Détails de l'Achat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deposit-history-table-body">
+                            <!-- Injected by app.js -->
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
@@ -315,6 +435,39 @@
                             <button type="submit" class="submit-btn" style="width: auto;">Enregistrer les réglages</button>
                         </div>
                     </form>
+                </div>
+
+                <div class="settings-card glass" style="margin-top: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 20px; color: var(--text-primary); font-family: 'Outfit', sans-serif;">Maintenance & Nettoyage de la base de données</h3>
+                    <p class="settings-intro">Nettoyez ou réinitialisez l'historique d'évolution du portefeuille et des versements. Ces opérations sont irréversibles.</p>
+                    
+                    <div class="maintenance-grid">
+                        <div class="maintenance-group">
+                            <label for="maintenance-history-period">Nettoyage historique du portefeuille</label>
+                            <div class="maintenance-control">
+                                <select id="maintenance-history-period">
+                                    <option value="all">Tout supprimer (réinitialiser)</option>
+                                    <option value="30">Conserver les 30 derniers jours</option>
+                                    <option value="90">Conserver les 90 derniers jours</option>
+                                    <option value="365">Conserver les 365 derniers jours</option>
+                                </select>
+                                <button type="button" id="btn-clean-portfolio-history" class="submit-btn btn-danger">Nettoyer</button>
+                            </div>
+                        </div>
+                        
+                        <div class="maintenance-group">
+                            <label for="maintenance-deposits-period">Nettoyage historique des versements</label>
+                            <div class="maintenance-control">
+                                <select id="maintenance-deposits-period">
+                                    <option value="all">Tout supprimer (réinitialiser)</option>
+                                    <option value="30">Conserver les 30 derniers jours</option>
+                                    <option value="90">Conserver les 90 derniers jours</option>
+                                    <option value="365">Conserver les 365 derniers jours</option>
+                                </select>
+                                <button type="button" id="btn-clean-deposits-history" class="submit-btn btn-danger">Nettoyer</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -429,9 +582,88 @@
                     <input type="date" id="account-creation-date">
                 </div>
 
+                <div class="form-group">
+                    <label for="account-invested">Argent Investi (€)</label>
+                    <input type="number" id="account-invested" step="any" placeholder="0.00" required>
+                    <span class="input-help">Total net des versements effectués sur ce compte.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="account-cash">Liquidités / Cash disponible (€)</label>
+                    <input type="number" id="account-cash" step="any" placeholder="0.00" required>
+                    <span class="input-help">Cash non investi disponible sur ce compte (ex: compte espèces du PEA).</span>
+                </div>
+
                 <div class="form-actions">
                     <button type="button" class="cancel-btn" id="cancel-account-form">Annuler</button>
                     <button type="submit" class="submit-btn" id="account-submit-btn">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: ADD/EDIT DEPOSIT -->
+    <div id="deposit-modal" class="modal-overlay">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h3 id="deposit-modal-title">Planifier un Versement</h3>
+                <button class="close-modal-btn" id="close-deposit-modal"><i data-lucide="x"></i></button>
+            </div>
+            <form id="deposit-form" class="modal-form">
+                <input type="hidden" id="deposit-id">
+                
+                <div class="form-group">
+                    <label for="deposit-name">Nom du Versement</label>
+                    <input type="text" id="deposit-name" placeholder="ex: Versement mensuel CW8, Epargne mensuelle" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="deposit-account">Compte Support</label>
+                        <select id="deposit-account" required>
+                            <!-- Injected dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deposit-holding">Placement Cible</label>
+                        <select id="deposit-holding" required>
+                            <!-- Injected dynamically based on account -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="deposit-amount">Montant (€)</label>
+                        <input type="number" id="deposit-amount" step="any" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deposit-frequency">Fréquence</label>
+                        <select id="deposit-frequency" required>
+                            <option value="daily">Quotidien</option>
+                            <option value="weekly">Hebdomadaire</option>
+                            <option value="monthly" selected>Mensuel</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="deposit-day-of-period" id="deposit-day-label">Jour du mois (1 - 31)</label>
+                        <input type="number" id="deposit-day-of-period" min="1" max="31" value="5" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deposit-next-date">Prochaine exécution</label>
+                        <input type="date" id="deposit-next-date" required>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancel-deposit-form">Annuler</button>
+                    <button type="submit" class="submit-btn" id="deposit-submit-btn">Sauvegarder</button>
                 </div>
             </form>
         </div>
@@ -455,6 +687,6 @@
     </div>
 
     <!-- Javascript Entry point -->
-    <script src="app.js"></script>
+    <script src="app.js?v=1.3"></script>
 </body>
 </html>
